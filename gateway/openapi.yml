@@ -1,0 +1,290 @@
+openapi: 3.0.0
+info:
+  title: fileshare app
+  version: 1.0.0
+servers:
+  - url: http://localhost:80/api/v1
+paths:
+  /user/register:
+    post:
+      tags: ["User"]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '201':
+          description: User registered successfully
+        '409':
+          description: User already exists
+  /user/login:
+    post:
+      tags: ["User"]
+      summary: Login a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+  /user/update-token:
+    post:
+      tags: ["User"]
+      summary: Update user token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthToken'
+      responses:
+        '200':
+          description: Token updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+
+
+  /files/ls:
+    get:
+      summary: List files
+      operationId: listFiles
+      parameters:
+        - name: userID
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: filePath
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListFilesResponse'
+  /files/upload:  
+    post:
+      summary: Upload file
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                userID:
+                  type: string
+                filePath:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadFileResponse'
+  /files/download:
+    get:
+      summary: Download file
+      operationId: downloadFile
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Download successful
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadFileResponse'
+  /files/rm:  
+    delete:
+      summary: Remove file
+      operationId: removeFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveFileRequest'
+      responses:
+        '200':
+          description: Remove successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoveFileResponse'
+                
+  /share/share:
+    post:
+      tags: ["Share"]
+      summary: Share a file with users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareRequest'
+      responses:
+        '200':
+          description: File shared successfully
+        '500':
+          description: Internal server error
+  /share/unshare:
+    delete:
+      tags: ["Share"]
+      summary: Unshare a file with users
+      parameters:
+        - name: file
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: users
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: File unshared successfully
+        '500':
+          description: Internal server error
+
+
+
+components:
+  schemas:
+    Credentials:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    AuthToken:
+      type: object
+      properties:
+        token:
+          type: string
+
+    FileInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+          format: int64
+        lastModified:
+          type: string
+          format: date-time
+    ListFilesResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+    RegisterUserRequest:
+      type: object
+      properties:
+        userID:
+          type: string
+    RegisterUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    UploadFileRequest:
+      type: object
+      properties:
+        userID:
+          type: string
+        filePath:
+          type: string
+        chunk:
+          type: string
+          format: binary
+    UploadFileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    DownloadFileRequest:
+      type: object
+      properties:
+        userID:
+          type: string
+        filePath:
+          type: string
+    DownloadFileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        file:
+          type: string
+          format: binary
+    RemoveFileRequest:
+      type: object
+      properties:
+        userID:
+          type: string
+        filePath:
+          type: string
+    RemoveFileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+
+    ShareRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        file:
+          type: string
+        users:
+          type: array
+          items:
+            type: string

@@ -1,0 +1,8 @@
+minio:
+  endpoint: nginx:9000
+  accessKey: minioadmin
+  secretKey: minioadmin
+
+server:
+  host: 0.0.0.0
+  port: 50051

@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package service;
+option go_package = "github.com/avran02/fileshare/files/pb";
+
+import "google/protobuf/timestamp.proto";
+
+service FileService {
+    rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {}
+    rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse) {}
+    rpc RemoveFile(RemoveFileRequest) returns (RemoveFileResponse) {}
+
+    rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse) {}
+    rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse) {}
+}
+
+message ListFilesRequest {
+    string userID = 1;
+    string filePath = 2;    
+}
+
+message ListFilesResponse {
+    repeated FileInfo files = 1;
+}
+
+message RegisterUserRequest {
+    string userID = 1;
+}
+
+message RegisterUserResponse {
+    bool success = 1;
+}
+
+message UploadFileRequest {
+    string userID = 1;
+    string filePath = 2; 
+    bytes content = 3;
+}
+
+message UploadFileResponse {
+    bool success = 1;
+}
+
+message DownloadFileRequest {
+    string userID = 1;
+    string filePath = 2;
+}
+
+message DownloadFileResponse {
+    bool success = 1;
+    bytes content = 2;
+}
+
+message RemoveFileRequest {
+    string userID = 1;
+    string filePath = 2;
+}
+
+message RemoveFileResponse {
+    bool success = 1;
+}
+
+message FileInfo {
+    string name = 1;
+    int64 size = 2;
+    google.protobuf.Timestamp lastModified = 3;
+}

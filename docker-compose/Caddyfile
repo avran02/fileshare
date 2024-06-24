@@ -1,0 +1,44 @@
+{
+	log {
+		output stdout
+		level DEBUG
+	}
+	servers {
+		timeouts {
+			read_body 5m
+			read_header 5m
+			write 5m
+			idle 5m
+		}
+	}
+}
+
+https://localhost:443 {
+	reverse_proxy /api/* gateway:3000 {
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+		header_up Host {upstream_hostport}
+		flush_interval -1
+	}
+
+	root * /srv
+	file_server
+}
+
+http://localhost:80 {
+	reverse_proxy /api/* gateway:3000 {
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+		header_up Host {upstream_hostport}
+		flush_interval -1
+	}
+
+	root * /srv
+	file_server
+}
+
+hello.localhost {
+	respond "Hello, World!"
+}
