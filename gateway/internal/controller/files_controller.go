@@ -47,7 +47,7 @@ func (c *filesController) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := c.service.UploadFile(r.Context(), r.Body, req.UserID, req.FilePath)
+	ok, err := c.service.UploadFile(r.Context(), req.File, req.UserID, req.FilePath)
 	if err != nil {
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -58,7 +58,7 @@ func (c *filesController) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = w.Write([]byte("Upload a file"))
+	_, err = w.Write([]byte(fmt.Sprint(ok)))
 	if err != nil {
 		slog.Error(err.Error())
 		return

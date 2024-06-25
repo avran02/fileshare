@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -40,40 +41,47 @@ func (s *filesService) UploadFile(ctx context.Context, reader io.Reader, userID,
 	stream, err := s.filesServerClient.UploadFile(ctx)
 	if err != nil {
 		slog.Error(err.Error())
-		return false, err
+		return false, fmt.Errorf("failed to create upload stream: %w", err)
 	}
-	buf := make([]byte, chankSize)
-	for {
-		_, err := reader.Read(buf)
-		if err != nil && err.Error() != "EOF" {
-			slog.Error(err.Error())
-			return false, err
-		}
-		err = stream.Send(&pb.UploadFileRequest{
-			Content: buf,
-		})
-		if err != nil {
-			slog.Error(err.Error())
-			return false, err
-		}
-		if err == io.EOF {
-			break
-		}
-	}
+
 	err = stream.Send(&pb.UploadFileRequest{
 		UserID:   userID,
 		FilePath: filePath,
 	})
 	if err != nil {
 		slog.Error(err.Error())
-		return false, err
+		return false, fmt.Errorf("failed to send initial request: %w", err)
+	}
+
+	slog.Info("Stream started\nSent file path and user id: " + filePath + " " + userID)
+	buf := make([]byte, chankSize)
+
+	for {
+		n, err := reader.Read(buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			slog.Error(err.Error())
+			return false, fmt.Errorf("failed to read file: %w", err)
+		}
+
+		err = stream.Send(&pb.UploadFileRequest{
+			Content: buf[:n],
+		})
+		if err != nil {
+			slog.Error(err.Error())
+			return false, fmt.Errorf("failed to send file chunk: %w", err)
+		}
 	}
 
 	resp, err := stream.CloseAndRecv()
 	if err != nil {
 		slog.Error(err.Error())
-		return false, err
+		return false, fmt.Errorf("failed to close and receive response: %w", err)
 	}
+
+	slog.Info("Stream closed and response received: " + fmt.Sprint(resp.Success))
 	return resp.Success, nil
 }
 

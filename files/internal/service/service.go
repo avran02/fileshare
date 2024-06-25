@@ -1,14 +1,15 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 
 	"github.com/avran02/fileshare/files/internal/config"
+	"github.com/avran02/fileshare/files/internal/dto"
 	"github.com/avran02/fileshare/files/pb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -26,7 +27,7 @@ var (
 type FilesService interface {
 	RegisterUser(ctx context.Context, bucketName string) error
 	ListFiles(ctx context.Context, bucketName, dir string) ([]*pb.FileInfo, error)
-	UploadFile(ctx context.Context, chunk []byte, bucketName, filePath string) error
+	UploadFile(ctx context.Context, req *dto.UploadFileStreamRequest) (int64, error)
 	DownloadFile(ctx context.Context, bucketName, filePath string) (*minio.Object, error)
 	RemoveFile(ctx context.Context, bucketName, filePath string) error
 }
@@ -81,23 +82,22 @@ func (s *filesService) RegisterUser(ctx context.Context, bucketName string) erro
 	return nil
 }
 
-func (s *filesService) UploadFile(ctx context.Context, chunk []byte, bucketName, filePath string) error {
-	err := s.checkBucketExists(ctx, bucketName)
+func (s *filesService) UploadFile(ctx context.Context, req *dto.UploadFileStreamRequest) (int64, error) {
+	err := s.checkBucketExists(ctx, req.UserID)
 	if err != nil && !errors.Is(err, ErrorBucketExists) {
-		return err
+		return 0, fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	objName := s.getObjectName(bucketName, filePath)
-
-	reader := bytes.NewReader(chunk)
-
-	_, err = s.minio.PutObject(ctx, bucketName, objName, reader, -1, minio.PutObjectOptions{})
+	fileInfo, err := s.minio.PutObject(ctx, req.UserID, req.FilePath, req, -1, minio.PutObjectOptions{})
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return fileInfo.Size, nil
+		}
 		slog.Error(err.Error())
-		return fmt.Errorf("failed to upload file: %w", err)
+		return 0, fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	return nil
+	return fileInfo.Size, nil
 }
 
 func (s *filesService) DownloadFile(ctx context.Context, bucketName, filePath string) (*minio.Object, error) {

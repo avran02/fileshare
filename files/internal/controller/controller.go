@@ -8,11 +8,12 @@ import (
 	"log/slog"
 
 	"github.com/avran02/fileshare/files/internal/config"
+	"github.com/avran02/fileshare/files/internal/dto"
 	"github.com/avran02/fileshare/files/internal/service"
 	"github.com/avran02/fileshare/files/pb"
 )
 
-// var timeOut = time.Duration(999999999999999999) //nolint
+const chankSize = 1024 * 1024
 
 type FileServerController interface {
 	ListFiles(ctx context.Context, req *pb.ListFilesRequest) (*pb.ListFilesResponse, error)
@@ -29,7 +30,7 @@ type fileServerController struct {
 func (c fileServerController) ListFiles(ctx context.Context, req *pb.ListFilesRequest) (*pb.ListFilesResponse, error) {
 	files, err := c.Service.ListFiles(ctx, req.UserID, req.FilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list files: %w", err)
 	}
 	slog.Info("List files: " + fmt.Sprint(files))
 	return &pb.ListFilesResponse{Files: files}, nil
@@ -64,32 +65,68 @@ func (c fileServerController) DownloadFile(req *pb.DownloadFileRequest, stream p
 }
 
 func (c fileServerController) UploadFile(stream pb.FileService_UploadFileServer) error {
-	ctx := context.Background()
-	for {
-		req, err := stream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
+	slog.Info("Upload file")
+	requestDTO := dto.UploadFileStreamRequest{}
+	streamErrChan := make(chan error, 1)
+	ctx := stream.Context()
 
-			slog.Error(err.Error())
-			return err
-		}
-
-		// TODO: Оптимизировать это так как сейчас он отправляется хуй пойми как
-		err = c.Service.UploadFile(ctx, req.Content, req.UserID, req.FilePath)
-		if err != nil {
-			slog.Error(err.Error())
-			return err
-		}
+	r, err := stream.Recv()
+	if err != nil {
+		slog.Error(err.Error())
+		return fmt.Errorf("failed to receive upload file request: %w", err)
 	}
 
-	err := stream.SendAndClose(&pb.UploadFileResponse{
-		Success: true,
-	})
+	err = requestDTO.GetData(r.UserID, r.FilePath)
+	if err != nil {
+		slog.Error(err.Error())
+		return fmt.Errorf("failed to get upload file request: %w", err)
+	}
+	defer requestDTO.CloseReader()
+
+	go func() {
+		defer close(streamErrChan)
+		defer requestDTO.CloseWriter()
+
+		for {
+			slog.Info("Waiting for upload file request")
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					slog.Info("EOF")
+					break
+				}
+
+				slog.Error(err.Error())
+				streamErrChan <- fmt.Errorf("failed to receive upload file request: %w", err)
+				return
+			}
+
+			_, err = requestDTO.Write(req.Content)
+			if err != nil {
+				slog.Error(err.Error())
+				streamErrChan <- fmt.Errorf("failed to write upload file request: %w", err)
+				return
+			}
+		}
+	}()
+
+	slog.Info("Starting upload file")
+	_, err = c.Service.UploadFile(ctx, &requestDTO)
+	if err != nil {
+		slog.Error(fmt.Errorf("failed to upload file: %w", err).Error())
+		return fmt.Errorf("failed to upload file: %w", err)
+	}
+
+	err = <-streamErrChan
 	if err != nil {
 		slog.Error(err.Error())
 		return err
+	}
+
+	err = stream.SendAndClose(&pb.UploadFileResponse{Success: true})
+	if err != nil {
+		slog.Error(err.Error())
+		return fmt.Errorf("failed to send upload file response: %w", err)
 	}
 
 	return nil
