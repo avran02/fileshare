@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/avran02/fileshare/gateway/internal/dto"
 	"github.com/avran02/fileshare/gateway/internal/service"
@@ -13,8 +14,6 @@ import (
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
-
-const defaultChunkSize = 1024
 
 type FilesController interface {
 	Download(w http.ResponseWriter, r *http.Request)
@@ -29,9 +28,16 @@ type filesController struct {
 
 func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Download a file")
+
+	pr, pw := io.Pipe()
+	streamErrChan := make(chan error, 1)
 	ctx := r.Context()
+
 	userID := r.URL.Query().Get("userID")
 	filePath := r.URL.Query().Get("filePath")
+
+	filePathParts := strings.Split(filePath, "/")
+	fileName := filePathParts[len(filePathParts)-1]
 
 	if userID == "" || filePath == "" {
 		slog.Error("userID or filePath is empty")
@@ -39,32 +45,21 @@ func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info("userID: " + userID + " filePath: " + filePath)
-	resp := dto.NewDownloadFileResponse()
-	go func() {
-
-		err := c.service.DownloadFile(ctx, userID, filePath, *resp)
-		if err != nil {
-			slog.Error(err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer resp.CloseReader()
-		slog.Info("got resp in controller.Download")
-
-		chunk := make([]byte, defaultChunkSize)
-		_, err = resp.Read(chunk)
-		if err != nil {
-			slog.Error(err.Error())
-			return
-		}
-		slog.Info("read chunk with len: " + fmt.Sprint(len(chunk)))
-	}()
-
+	go c.asyncDownloadFileFromGrpcStream(ctx, userID, filePath, pw, streamErrChan)
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, err := io.Copy(w, resp)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+
+	_, err := io.Copy(w, pr)
 	if err != nil {
 		slog.Error(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = <-streamErrChan
+	if err != nil {
+		slog.Error(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -171,6 +166,17 @@ func (c *filesController) Ls(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(dto.ListFilesResponse{Files: respFiles})
 	if err != nil {
 		slog.Error(err.Error())
+		return
+	}
+}
+
+func (c *filesController) asyncDownloadFileFromGrpcStream(ctx context.Context, userID, filePath string, w *io.PipeWriter, streamErrChan chan error) {
+	defer close(streamErrChan)
+	defer w.Close()
+
+	if err := c.service.DownloadFile(ctx, userID, filePath, w); err != nil {
+		slog.Error(err.Error())
+		streamErrChan <- fmt.Errorf("failed to create download stream: %w", err)
 		return
 	}
 }

@@ -1,7 +1,6 @@
 package dto
 
 import (
-	"io"
 	"mime/multipart"
 	"net/http"
 	"time"
@@ -49,38 +48,6 @@ type UploadFileResponse struct {
 type DownloadFileRequest struct {
 	UserID   string `json:"userID"`
 	FilePath string `json:"filePath"`
-}
-
-type DownloadFileResponse struct {
-	Success bool `json:"success"`
-	// Content []byte `json:"content"`s
-
-	r *io.PipeReader
-	w *io.PipeWriter
-}
-
-func NewDownloadFileResponse() *DownloadFileResponse {
-	pr, pw := io.Pipe()
-	return &DownloadFileResponse{
-		r: pr,
-		w: pw,
-	}
-}
-
-func (r *DownloadFileResponse) Read(buf []byte) (int, error) {
-	return r.r.Read(buf)
-}
-
-func (r *DownloadFileResponse) Write(buf []byte) (int, error) {
-	return (*r.w).Write(buf)
-}
-
-func (r *DownloadFileResponse) CloseReader() error {
-	return r.r.Close()
-}
-
-func (r *DownloadFileResponse) CloseWriter() error {
-	return r.w.Close()
 }
 
 type RemoveFileRequest struct {
