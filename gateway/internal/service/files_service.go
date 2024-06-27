@@ -44,16 +44,14 @@ func (s *filesService) UploadFile(ctx context.Context, reader io.Reader, userID,
 		return false, fmt.Errorf("failed to create upload stream: %w", err)
 	}
 
-	err = stream.Send(&pb.UploadFileRequest{
+	if err = stream.Send(&pb.UploadFileRequest{
 		UserID:   userID,
 		FilePath: filePath,
-	})
-	if err != nil {
+	}); err != nil {
 		slog.Error(err.Error())
 		return false, fmt.Errorf("failed to send initial request: %w", err)
 	}
 
-	slog.Info("Stream started\nSent file path and user id: " + filePath + " " + userID)
 	buf := make([]byte, chankSize)
 
 	for {
@@ -66,10 +64,9 @@ func (s *filesService) UploadFile(ctx context.Context, reader io.Reader, userID,
 			return false, fmt.Errorf("failed to read file: %w", err)
 		}
 
-		err = stream.Send(&pb.UploadFileRequest{
+		if err = stream.Send(&pb.UploadFileRequest{
 			Content: buf[:n],
-		})
-		if err != nil {
+		}); err != nil {
 			slog.Error(err.Error())
 			return false, fmt.Errorf("failed to send file chunk: %w", err)
 		}
@@ -81,7 +78,6 @@ func (s *filesService) UploadFile(ctx context.Context, reader io.Reader, userID,
 		return false, fmt.Errorf("failed to close and receive response: %w", err)
 	}
 
-	slog.Info("Stream closed and response received: " + fmt.Sprint(resp.Success))
 	return resp.Success, nil
 }
 

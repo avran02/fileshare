@@ -67,22 +67,19 @@ func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 func (c *filesController) Upload(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Upload a file")
 
-	req := dto.UploadFileRequest{}
-	err := req.FromHTTP(r)
+	ctx := r.Context()
+
+	req, err := dto.NewUploadFileRequestFromHTTPForm(r)
 	if err != nil {
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ok, err := c.service.UploadFile(r.Context(), req.File, req.UserID, req.FilePath)
+	ok, err := c.service.UploadFile(ctx, req.File, req.UserID, req.FilePath)
 	if err != nil {
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if !ok {
-		http.Error(w, "Failed to upload file", http.StatusInternalServerError)
 		return
 	}
 

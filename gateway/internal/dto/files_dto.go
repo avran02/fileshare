@@ -24,21 +24,21 @@ type UploadFileRequest struct {
 	File     multipart.File `json:"file"`
 }
 
-func (r *UploadFileRequest) FromHTTP(req *http.Request) error {
-	err := req.ParseMultipartForm(maxFileSize)
-	if err != nil {
-		return err
+func NewUploadFileRequestFromHTTPForm(req *http.Request) (*UploadFileRequest, error) {
+	if err := req.ParseMultipartForm(maxFileSize); err != nil {
+		return nil, err
 	}
 
 	file, _, err := req.FormFile("file")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	r.UserID = req.FormValue("userID")
-	r.FilePath = req.FormValue("filePath")
-	r.File = file
-	return nil
+	return &UploadFileRequest{
+		FilePath: req.FormValue("filePath"),
+		UserID:   req.FormValue("userID"),
+		File:     file,
+	}, nil
 }
 
 type UploadFileResponse struct {
