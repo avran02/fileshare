@@ -46,6 +46,7 @@ func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go c.asyncDownloadFileFromGrpcStream(ctx, userID, filePath, pw, streamErrChan)
+
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 
@@ -57,6 +58,7 @@ func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = <-streamErrChan
+	// fixme: check if error is io.EOF
 	if err != nil {
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -76,16 +78,17 @@ func (c *filesController) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := c.service.UploadFile(ctx, req.File, req.UserID, req.FilePath)
+	_, err = c.service.UploadFile(ctx, req.File, req.UserID, req.FilePath)
 	if err != nil {
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, err = w.Write([]byte(fmt.Sprint(ok)))
+	_, err = w.Write([]byte("ok"))
 	if err != nil {
 		slog.Error(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -95,7 +98,8 @@ func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 
 	rawBody := make([]byte, r.ContentLength)
 	_, err := r.Body.Read(rawBody)
-	if err != nil {
+	if err != nil && err != io.EOF {
+		err = fmt.Errorf("failed to read request body: %w", err)
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -104,6 +108,7 @@ func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 	var body dto.RemoveFileRequest
 	err = json.Unmarshal(rawBody, &body)
 	if err != nil {
+		err = fmt.Errorf("failed to unmarshal request body: %w", err)
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -111,6 +116,7 @@ func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 
 	ok, err := c.service.RemoveFile(body.UserID, body.FilePath)
 	if err != nil {
+		err = fmt.Errorf("failed to remove file: %w", err)
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -118,6 +124,7 @@ func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 
 	rawResp, err := json.Marshal(dto.RemoveFileResponse{Success: ok})
 	if err != nil {
+		err = fmt.Errorf("failed to marshal response: %w", err)
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -125,6 +132,7 @@ func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(rawResp)
 	if err != nil {
+		err = fmt.Errorf("failed to write response: %w", err)
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -169,7 +177,6 @@ func (c *filesController) Ls(w http.ResponseWriter, r *http.Request) {
 
 func (c *filesController) asyncDownloadFileFromGrpcStream(ctx context.Context, userID, filePath string, w *io.PipeWriter, streamErrChan chan error) {
 	defer close(streamErrChan)
-	defer w.Close()
 
 	if err := c.service.DownloadFile(ctx, userID, filePath, w); err != nil {
 		slog.Error(err.Error())

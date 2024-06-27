@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"time"
@@ -26,12 +27,12 @@ type UploadFileRequest struct {
 
 func NewUploadFileRequestFromHTTPForm(req *http.Request) (*UploadFileRequest, error) {
 	if err := req.ParseMultipartForm(maxFileSize); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse multipart form: %w", err)
 	}
 
 	file, _, err := req.FormFile("file")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get file: %w", err)
 	}
 
 	return &UploadFileRequest{

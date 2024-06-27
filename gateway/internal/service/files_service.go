@@ -93,17 +93,23 @@ func (s *filesService) DownloadFile(ctx context.Context, userID, filePath string
 	}
 
 	for {
+		slog.Info("in loop")
 		resp, err := stream.Recv()
+		// slog.Info("resp: " + fmt.Sprint(resp))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				slog.Info("EOF")
 				break
+			} else {
+
+				err = fmt.Errorf("failed to receive download file response: %w", err)
+				slog.Error(err.Error())
+				return err
 			}
-			err = fmt.Errorf("failed to receive download file response: %w", err)
-			slog.Error(err.Error())
-			return err
 		}
 
-		_, err = w.Write(resp.Content)
+		n, err := w.Write(resp.Content)
+		slog.Info("n: " + fmt.Sprint(n) + " err: " + fmt.Sprint(err))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -113,12 +119,14 @@ func (s *filesService) DownloadFile(ctx context.Context, userID, filePath string
 			return err
 		}
 	}
+	slog.Info("after loop")
 
 	if err = stream.CloseSend(); err != nil {
 		err = fmt.Errorf("failed to close send: %w", err)
 		slog.Error(err.Error())
 		return err
 	}
+	slog.Info("after closeSend")
 
 	return nil
 }

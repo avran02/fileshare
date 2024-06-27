@@ -27,7 +27,7 @@ var (
 type FilesService interface {
 	RegisterUser(ctx context.Context, bucketName string) error
 	ListFiles(ctx context.Context, bucketName, dir string) ([]*pb.FileInfo, error)
-	UploadFile(ctx context.Context, req *dto.UploadFileStreamRequest) (int64, error)
+	UploadFile(ctx context.Context, req *dto.UploadFileStreamRequest) error
 	DownloadFile(ctx context.Context, bucketName, filePath string) (io.ReadCloser, error)
 	RemoveFile(ctx context.Context, bucketName, filePath string) error
 }
@@ -61,7 +61,6 @@ func (s *filesService) ListFiles(ctx context.Context, bucketName string, dir str
 			Size:         object.Size,
 			LastModified: timestamppb.New(object.LastModified),
 		})
-		slog.Info("Added file: " + object.Key + " to list" + object.LastModified.String())
 	}
 
 	return files, nil
@@ -82,48 +81,43 @@ func (s *filesService) RegisterUser(ctx context.Context, bucketName string) erro
 	return nil
 }
 
-func (s *filesService) UploadFile(ctx context.Context, req *dto.UploadFileStreamRequest) (int64, error) {
-	err := s.createBucketIfNotExists(ctx, req.UserID)
-	if err != nil && !errors.Is(err, ErrorBucketExists) {
-		return 0, fmt.Errorf("failed to upload file: %w", err)
+func (s *filesService) UploadFile(ctx context.Context, req *dto.UploadFileStreamRequest) error {
+	if err := s.createBucketIfNotExists(ctx, req.UserID); err != nil {
+		return err
 	}
 
-	fileInfo, err := s.minio.PutObject(ctx, req.UserID, req.FilePath, req, -1, minio.PutObjectOptions{})
+	_, err := s.minio.PutObject(ctx, req.UserID, req.FilePath, req, -1, minio.PutObjectOptions{})
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return fileInfo.Size, nil
+			slog.Info("closed in EOF block")
+			return nil
 		}
 		slog.Error(err.Error())
-		return 0, fmt.Errorf("failed to upload file: %w", err)
+		return fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	return fileInfo.Size, nil
+	slog.Info("Uploaded file: " + req.FilePath)
+
+	return nil
 }
 
 func (s *filesService) DownloadFile(ctx context.Context, bucketName, filePath string) (io.ReadCloser, error) {
-	// TODO: make stream
-	err := s.createBucketIfNotExists(ctx, bucketName)
-	if err != nil && !errors.Is(err, ErrorBucketExists) {
+	if err := s.createBucketIfNotExists(ctx, bucketName); err != nil {
 		return nil, err
 	}
 
 	o, err := s.minio.GetObject(ctx, bucketName, filePath, getObjectOptions)
 	if err != nil {
+		err = fmt.Errorf("failed to get object: %w", err)
 		slog.Error(err.Error())
-		return nil, fmt.Errorf("failed to download file: %w", err)
+		return nil, err
 	}
-	stat, err := o.Stat()
-	if err != nil {
-		slog.Error(err.Error())
-		return nil, fmt.Errorf("failed to get object stat: %w", err)
-	}
-	slog.Info("got object: " + fmt.Sprint(stat.Key) + " with size: " + fmt.Sprint(stat.Size))
+
 	return o, nil
 }
 
 func (s *filesService) RemoveFile(ctx context.Context, bucketName, filePath string) error {
-	err := s.createBucketIfNotExists(ctx, bucketName)
-	if err != nil && !errors.Is(err, ErrorBucketExists) {
+	if err := s.createBucketIfNotExists(ctx, bucketName); err != nil {
 		return err
 	}
 
@@ -133,15 +127,17 @@ func (s *filesService) RemoveFile(ctx context.Context, bucketName, filePath stri
 func (s *filesService) createBucketIfNotExists(ctx context.Context, bucketName string) error {
 	exists, err := s.minio.BucketExists(ctx, bucketName)
 	if err != nil {
+		err = fmt.Errorf("failed to check if bucket exists: %w", err)
 		slog.Error(err.Error())
-		return fmt.Errorf("failed to check if bucket exists: %w", err)
+		return err
 	}
 
 	if !exists {
 		err = s.minio.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: config.DefaultLocation})
 		if err != nil {
+			err = fmt.Errorf("failed to create bucket: %w", err)
 			slog.Error(err.Error())
-			return fmt.Errorf("failed to create bucket: %w", err)
+			return err
 		}
 	}
 
