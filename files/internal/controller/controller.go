@@ -67,7 +67,7 @@ func (c fileServerController) UploadFile(stream pb.FileService_UploadFileServer)
 
 	if len(r.Content) != 0 {
 		slog.Warn("Content should be empty")
-		return fmt.Errorf("content should be empty")
+		return ErrNotEmptyFirstChunk
 	}
 
 	requestDTO, err := dto.NewUploadFileStreamRequest(r.UserID, r.FilePath)
