@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -12,6 +13,8 @@ import (
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
+
+const defaultChunkSize = 1024
 
 type FilesController interface {
 	Download(w http.ResponseWriter, r *http.Request)
@@ -26,10 +29,40 @@ type filesController struct {
 
 func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Download a file")
+	ctx := r.Context()
+	userID := r.URL.Query().Get("userID")
+	filePath := r.URL.Query().Get("filePath")
 
-	// TODO: add gRPC call
-	c.service.DownloadFile()
-	_, err := w.Write([]byte("Download a file"))
+	if userID == "" || filePath == "" {
+		slog.Error("userID or filePath is empty")
+		http.Error(w, "userID or filePath is empty", http.StatusBadRequest)
+		return
+	}
+
+	slog.Info("userID: " + userID + " filePath: " + filePath)
+	resp := dto.NewDownloadFileResponse()
+	go func() {
+
+		err := c.service.DownloadFile(ctx, userID, filePath, *resp)
+		if err != nil {
+			slog.Error(err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer resp.CloseReader()
+		slog.Info("got resp in controller.Download")
+
+		chunk := make([]byte, defaultChunkSize)
+		_, err = resp.Read(chunk)
+		if err != nil {
+			slog.Error(err.Error())
+			return
+		}
+		slog.Info("read chunk with len: " + fmt.Sprint(len(chunk)))
+	}()
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	_, err := io.Copy(w, resp)
 	if err != nil {
 		slog.Error(err.Error())
 		return

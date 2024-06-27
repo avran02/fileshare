@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/avran02/fileshare/files/pb"
+	"github.com/avran02/fileshare/gateway/internal/dto"
 )
 
 var chankSize = 1024 * 1024
@@ -15,7 +16,7 @@ var chankSize = 1024 * 1024
 type FilesService interface {
 	ListFiles(ctx context.Context, userID, filePath string) ([]*pb.FileInfo, error)
 	UploadFile(ctx context.Context, reader io.Reader, userID, filePath string) (bool, error)
-	DownloadFile()
+	DownloadFile(ctx context.Context, userID, filePath string, resp dto.DownloadFileResponse) error
 	RemoveFile(userID, filePath string) (bool, error)
 }
 
@@ -85,8 +86,75 @@ func (s *filesService) UploadFile(ctx context.Context, reader io.Reader, userID,
 	return resp.Success, nil
 }
 
-func (s *filesService) DownloadFile() {
-	// TODO: add gRPC call
+func (s *filesService) DownloadFile(ctx context.Context, userID, filePath string, r dto.DownloadFileResponse) error {
+	streamErrChan := make(chan error, 1)
+
+	stream, err := s.filesServerClient.DownloadFile(ctx, &pb.DownloadFileRequest{
+		UserID:   userID,
+		FilePath: filePath,
+	})
+	if err != nil {
+		slog.Error(err.Error())
+		return fmt.Errorf("failed to create download stream: %w", err)
+	}
+
+	go func() {
+		defer r.CloseWriter()
+		defer close(streamErrChan)
+
+		for {
+			slog.Info("requesting bytes")
+			resp, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					slog.Info("End of file")
+					break
+				}
+				slog.Error(err.Error())
+				streamErrChan <- fmt.Errorf("failed to receive download file response: %w", err)
+				return
+			}
+
+			if len(resp.Content) == 0 {
+				slog.Info("No content")
+				if resp.Success {
+					slog.Info("Success")
+					break
+				}
+				slog.Warn("No content and no success")
+				break
+			}
+
+			slog.Info("Got " + fmt.Sprint(len(resp.Content)) + " bytes")
+
+			n, err := r.Write(resp.Content)
+			slog.Info("n: " + fmt.Sprint(n) + " bytes")
+			if err != nil {
+				slog.Error("Read error: " + err.Error())
+				if errors.Is(err, io.EOF) && n == 0 {
+					slog.Info("EOF")
+					break
+				} else {
+					slog.Error(err.Error())
+					streamErrChan <- fmt.Errorf("failed to read download file response: %w", err)
+				}
+			}
+			slog.Info("Received " + fmt.Sprint(n) + " bytes")
+		}
+
+		err = stream.CloseSend()
+		if err != nil {
+			slog.Error(err.Error())
+			streamErrChan <- fmt.Errorf("failed to close send: %w", err)
+		}
+	}()
+
+	err = <-streamErrChan
+	if err != nil {
+		return fmt.Errorf("failed to download file: %w", err)
+	}
+
+	return nil
 }
 
 func (s *filesService) RemoveFile(userID, filePath string) (bool, error) {

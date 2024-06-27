@@ -13,8 +13,6 @@ import (
 	"github.com/avran02/fileshare/files/pb"
 )
 
-const chankSize = 1024 * 1024
-
 type FileServerController interface {
 	ListFiles(ctx context.Context, req *pb.ListFilesRequest) (*pb.ListFilesResponse, error)
 	DownloadFile(req *pb.DownloadFileRequest, stream pb.FileService_DownloadFileServer) error
@@ -37,31 +35,67 @@ func (c fileServerController) ListFiles(ctx context.Context, req *pb.ListFilesRe
 }
 
 func (c fileServerController) DownloadFile(req *pb.DownloadFileRequest, stream pb.FileService_DownloadFileServer) error {
-	ctx := context.Background()
+	ctx := stream.Context()
+	streamErrChan := make(chan error, 1)
 
-	object, err := c.Service.DownloadFile(ctx, req.UserID, req.FilePath)
+	file, err := c.Service.DownloadFile(ctx, req.UserID, req.FilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to download file: %w", err)
 	}
+	defer file.Close()
 
-	defer object.Close()
+	slog.Info("got file from minio")
 
 	buf := make([]byte, config.StreamChunkSize)
 
-	for {
-		n, err := object.Read(buf)
-		if err != nil && err.Error() != "EOF" {
-			slog.Error(err.Error())
-			return err
+	go func() {
+		slog.Info("Start stream")
+		defer close(streamErrChan)
+
+		for {
+			n, err := file.Read(buf)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					if n == 0 {
+						slog.Info("End of file")
+						break
+					}
+				} else {
+					slog.Error(err.Error())
+					streamErrChan <- fmt.Errorf("failed to read file: %w", err)
+				}
+			}
+
+			slog.Info("read " + fmt.Sprint(n) + " bytes")
+
+			err = stream.Send(&pb.DownloadFileResponse{
+				Content: buf[:n],
+			})
+			if err != nil {
+				streamErrChan <- fmt.Errorf("failed to send download file response: %w", err)
+			}
+			slog.Info("bytes sent")
 		}
 
+		slog.Info("End loop")
 		err = stream.Send(&pb.DownloadFileResponse{
-			Content: buf[:n],
+			Success: true,
 		})
 		if err != nil {
-			return err
+			streamErrChan <- fmt.Errorf("failed to send download file response: %w", err)
 		}
+
+		slog.Info("stream ended")
+	}()
+	err = <-streamErrChan
+	if err != nil {
+		slog.Error(err.Error())
+		return fmt.Errorf("failed to download file: %w", err)
 	}
+
+	slog.Info("Downloaded file")
+
+	return nil
 }
 
 func (c fileServerController) UploadFile(stream pb.FileService_UploadFileServer) error {
