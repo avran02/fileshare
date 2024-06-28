@@ -1,0 +1,129 @@
+openapi: 3.0.1
+info:
+  title: Files API
+  description: API для загрузки, скачивания, удаления и перечисления файлов.
+  version: 1.0.0
+paths:
+  /api/v1/files/upload:
+    post:
+      tags:
+        - files
+      summary: Загрузка файла
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Тело запроса для загрузки файла
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                filePath:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+              required:
+                - filePath
+                - file
+      responses:
+        '200':
+          description: Успешная загрузка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+  /api/v1/files/download:
+    get:
+      tags:
+        - files
+      summary: Скачивание файла
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filePath
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное скачивание
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/v1/files/rm:
+    delete:
+      tags:
+        - files
+      summary: Удаление файла
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filePath
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+  /api/v1/files/ls:
+    get:
+      tags:
+        - files
+      summary: Перечисление файлов
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filePath
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное перечисление
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListFilesResponse'
+components:
+  schemas:
+    UploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    DeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    ListFilesResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              size:
+                type: integer
+              lastModified:
+                type: string
+                format: date-time
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
