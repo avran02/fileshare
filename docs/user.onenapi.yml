@@ -1,0 +1,140 @@
+openapi: 3.0.1
+info:
+  title: User API
+  description: API для регистрации, входа, выхода и обновления токенов пользователей.
+  version: 1.0.0
+paths:
+  /api/v1/user/register:
+    post:
+      tags:
+        - user
+      summary: Регистрация нового пользователя
+      requestBody:
+        description: Тело запроса для регистрации пользователя
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+      responses:
+        '200':
+          description: Успешная регистрация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterUserResponse'
+  /api/v1/user/login:
+    post:
+      tags:
+        - user
+      summary: Вход пользователя
+      requestBody:
+        description: Тело запроса для входа пользователя
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginUserRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginUserResponse'
+  /api/v1/user/logout:
+    post:
+      tags:
+        - user
+      summary: Выход пользователя
+      requestBody:
+        description: Тело запроса для выхода пользователя
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+  /api/v1/user/refresh-token:
+    post:
+      tags:
+        - user
+      summary: Обновление access токена
+      requestBody:
+        description: Тело запроса для обновления токена
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Успешное обновление токена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+components:
+  schemas:
+    RegisterUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+    RegisterUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    LoginUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+    LoginUserResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+        - refreshToken
+    RefreshTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+    LogoutRequest:
+      type: object
+      properties:
+        accessToken:
+          type: string
+      required:
+        - accessToken
+    LogoutResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
