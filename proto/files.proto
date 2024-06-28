@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package service;
-option go_package = "github.com/avran02/fileshare/files/pb";
+option go_package = "github.com/avran02/fileshare/proto/filespb";
 
 import "google/protobuf/timestamp.proto";
 

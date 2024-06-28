@@ -3,16 +3,23 @@ package service
 type UserService interface {
 	RegisterUser()
 	LoginUser()
-	UpdateToken()
+	RefreshToken()
+	Logout()
 }
 
-type userService struct{}
+type userService struct {
+	userServiceClient pb.UserServiceClient
+}
 
-func (s *userService) RegisterUser() {}
+func (s *userService) RegisterUser() {
+
+}
 
 func (s *userService) LoginUser() {}
 
-func (s *userService) UpdateToken() {}
+func (s *userService) RefreshToken() {}
+
+func (s *userService) Logout() {}
 
 func NewUserService() UserService {
 	return &userService{}

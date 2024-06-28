@@ -10,7 +10,8 @@ import (
 type UsersController interface {
 	Login(w http.ResponseWriter, r *http.Request)
 	Register(w http.ResponseWriter, r *http.Request)
-	UpdateToken(w http.ResponseWriter, r *http.Request)
+	RefreshToken(w http.ResponseWriter, r *http.Request)
+	Logout(w http.ResponseWriter, r *http.Request)
 }
 
 type userController struct {
@@ -37,10 +38,20 @@ func (c *userController) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *userController) UpdateToken(w http.ResponseWriter, r *http.Request) {
+func (c *userController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Update user token")
-	c.service.UpdateToken()
+	c.service.RefreshToken()
 	_, err := w.Write([]byte("Update user token"))
+	if err != nil {
+		slog.Error(err.Error())
+		return
+	}
+}
+
+func (c *userController) Logout(w http.ResponseWriter, r *http.Request) {
+	slog.Info("Logout a user")
+	c.service.Logout()
+	_, err := w.Write([]byte("Logout a user"))
 	if err != nil {
 		slog.Error(err.Error())
 		return
