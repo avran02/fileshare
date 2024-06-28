@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/avran02/fileshare/gateway/internal/controller"
+	customMiddleware "github.com/avran02/fileshare/gateway/internal/middlaware"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -20,13 +21,17 @@ func (router *Router) getUserRoutes() chi.Router {
 	r := chi.NewRouter()
 	r.Post("/login", router.controllers.UsersController.Login)
 	r.Post("/register", router.controllers.UsersController.Register)
-	r.Post("/update-token", router.controllers.UsersController.UpdateToken)
+	r.Post("/refresh-token", router.controllers.UsersController.RefreshToken)
+	r.Post("/logout", router.controllers.UsersController.Logout)
 
 	return r
 }
 
 func (router *Router) getFilesRoutes() chi.Router {
 	r := chi.NewRouter()
+	authMiddlaware := customMiddleware.GetAuthMiddleware(router.controllers.UsersController.GetGrpcClient())
+	r.Use(authMiddlaware)
+
 	r.Post("/upload", router.controllers.FilesController.Upload)
 	r.Get("/download", router.controllers.FilesController.Download)
 	r.Delete("/rm", router.controllers.FilesController.Rm)

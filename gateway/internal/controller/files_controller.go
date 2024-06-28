@@ -9,11 +9,9 @@ import (
 	"strings"
 
 	"github.com/avran02/fileshare/gateway/internal/dto"
+	"github.com/avran02/fileshare/gateway/internal/middlaware"
 	"github.com/avran02/fileshare/gateway/internal/service"
-	jsoniter "github.com/json-iterator/go"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type FilesController interface {
 	Download(w http.ResponseWriter, r *http.Request)
@@ -28,12 +26,12 @@ type filesController struct {
 
 func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Download a file")
+	ctx := r.Context()
+	userID := ctx.Value(middlaware.ContextUserIDKey).(string)
 
 	pr, pw := io.Pipe()
 	streamErrChan := make(chan error, 1)
-	ctx := r.Context()
 
-	userID := r.URL.Query().Get("userID")
 	filePath := r.URL.Query().Get("filePath")
 
 	filePathParts := strings.Split(filePath, "/")
@@ -58,7 +56,6 @@ func (c *filesController) Download(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = <-streamErrChan
-	// fixme: check if error is io.EOF
 	if err != nil {
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -70,6 +67,7 @@ func (c *filesController) Upload(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Upload a file")
 
 	ctx := r.Context()
+	userID := ctx.Value(middlaware.ContextUserIDKey).(string)
 
 	req, err := dto.NewUploadFileRequestFromHTTPForm(r)
 	if err != nil {
@@ -78,7 +76,7 @@ func (c *filesController) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = c.service.UploadFile(ctx, req.File, req.UserID, req.FilePath)
+	_, err = c.service.UploadFile(ctx, req.File, userID, req.FilePath)
 	if err != nil {
 		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -95,6 +93,8 @@ func (c *filesController) Upload(w http.ResponseWriter, r *http.Request) {
 
 func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Remove a file")
+	ctx := r.Context()
+	userID := ctx.Value(middlaware.ContextUserIDKey).(string)
 
 	rawBody := make([]byte, r.ContentLength)
 	_, err := r.Body.Read(rawBody)
@@ -114,7 +114,7 @@ func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := c.service.RemoveFile(body.UserID, body.FilePath)
+	ok, err := c.service.RemoveFile(ctx, userID, body.FilePath)
 	if err != nil {
 		err = fmt.Errorf("failed to remove file: %w", err)
 		slog.Error(err.Error())
@@ -140,20 +140,20 @@ func (c *filesController) Rm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *filesController) Ls(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	userID := r.URL.Query().Get("userID")
+	ctx := r.Context()
+	userID := ctx.Value(middlaware.ContextUserIDKey).(string)
 	filePath := r.URL.Query().Get("filePath")
+
 	files, err := c.service.ListFiles(ctx, userID, filePath)
 	if err != nil {
 		slog.Error(err.Error())
 		return
 	}
+
 	if files == nil {
 		slog.Warn("files is nil")
 		return
 	}
-
-	slog.Info("Found " + fmt.Sprint(len(files)) + " files")
 
 	respFiles := make([]dto.FileInfo, len(files))
 	for i, file := range files {

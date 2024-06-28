@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/avran02/auth/internal/config"
-	"github.com/avran02/auth/internal/models"
+	"github.com/avran02/fileshare/auth/internal/config"
+	"github.com/avran02/fileshare/auth/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 )
 

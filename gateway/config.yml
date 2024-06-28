@@ -5,3 +5,7 @@ server:
 fileService:
   # endpoint: localhost:50051
   endpoint: files:50051
+
+authService:
+  # endpoint: localhost:50051
+  endpoint: auth:50051

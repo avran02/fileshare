@@ -20,7 +20,6 @@ type ListFilesResponse struct {
 }
 
 type UploadFileRequest struct {
-	UserID   string         `json:"userID"`
 	FilePath string         `json:"filePath"`
 	File     multipart.File `json:"file"`
 }
@@ -37,7 +36,6 @@ func NewUploadFileRequestFromHTTPForm(req *http.Request) (*UploadFileRequest, er
 
 	return &UploadFileRequest{
 		FilePath: req.FormValue("filePath"),
-		UserID:   req.FormValue("userID"),
 		File:     file,
 	}, nil
 }
@@ -47,12 +45,10 @@ type UploadFileResponse struct {
 }
 
 type DownloadFileRequest struct {
-	UserID   string `json:"userID"`
 	FilePath string `json:"filePath"`
 }
 
 type RemoveFileRequest struct {
-	UserID   string `json:"userID"`
 	FilePath string `json:"filePath"`
 }
 

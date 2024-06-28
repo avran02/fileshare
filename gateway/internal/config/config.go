@@ -16,9 +16,14 @@ type FileService struct {
 	Endpoint string `yaml:"endpoint"`
 }
 
+type AuthService struct {
+	Endpoint string `yaml:"endpoint"`
+}
+
 type Config struct {
 	Server      Server      `yaml:"server"`
 	FileService FileService `yaml:"fileService"`
+	AuthService AuthService `yaml:"authService"`
 }
 
 func New() *Config {

@@ -19,11 +19,13 @@ type App struct {
 
 func New() *App {
 	conf := config.New()
-	client, conn := connectToFilesServer(conf.FileService.Endpoint)
+	filesClient, _ := connectToFilesServer(conf.FileService.Endpoint)
+	// TODO: Add auth service endpoint
+	authClient, _ := connectToAuthService(conf.AuthService.Endpoint)
 
 	services := service.Services{
-		UserService:  service.NewUserService(),
-		FilesService: service.NewFilesService(client),
+		UserService:  service.NewUserService(authClient),
+		FilesService: service.NewFilesService(filesClient),
 		ShareService: service.NewShareService(),
 	}
 
@@ -33,9 +35,9 @@ func New() *App {
 		ShareController: controller.NewShareController(services.ShareService),
 	}
 	return &App{
-		Config:     conf,
-		Router:     router.New(controllers),
-		ClientConn: conn,
+		Config: conf,
+		Router: router.New(controllers),
+		// ClientConn: conn,
 	}
 }
 

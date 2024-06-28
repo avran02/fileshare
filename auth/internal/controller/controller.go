@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/avran02/auth/internal/service"
-	"github.com/avran02/auth/pb"
+	"github.com/avran02/fileshare/auth/internal/service"
+	pb "github.com/avran02/fileshare/proto/authpb"
 	"github.com/google/uuid"
 )
 

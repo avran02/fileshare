@@ -7,7 +7,7 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/avran02/fileshare/files/pb"
+	pb "github.com/avran02/fileshare/proto/filespb"
 )
 
 var chankSize = 1024 * 1024
@@ -16,7 +16,7 @@ type FilesService interface {
 	ListFiles(ctx context.Context, userID, filePath string) ([]*pb.FileInfo, error)
 	UploadFile(ctx context.Context, reader io.Reader, userID, filePath string) (bool, error)
 	DownloadFile(ctx context.Context, userID, filePath string, w *io.PipeWriter) error
-	RemoveFile(userID, filePath string) (bool, error)
+	RemoveFile(ctx context.Context, userID, filePath string) (bool, error)
 }
 
 type filesService struct {
@@ -124,8 +124,8 @@ func (s *filesService) DownloadFile(ctx context.Context, userID, filePath string
 	return nil
 }
 
-func (s *filesService) RemoveFile(userID, filePath string) (bool, error) {
-	resp, err := s.filesServerClient.RemoveFile(context.TODO(), &pb.RemoveFileRequest{
+func (s *filesService) RemoveFile(ctx context.Context, userID, filePath string) (bool, error) {
+	resp, err := s.filesServerClient.RemoveFile(ctx, &pb.RemoveFileRequest{
 		UserID:   userID,
 		FilePath: filePath,
 	})
@@ -136,8 +136,8 @@ func (s *filesService) RemoveFile(userID, filePath string) (bool, error) {
 	return resp.Success, nil
 }
 
-func NewFilesService(pbClient pb.FileServiceClient) FilesService {
+func NewFilesService(client pb.FileServiceClient) FilesService {
 	return &filesService{
-		filesServerClient: pbClient,
+		filesServerClient: client,
 	}
 }

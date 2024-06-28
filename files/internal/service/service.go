@@ -10,7 +10,7 @@ import (
 
 	"github.com/avran02/fileshare/files/internal/config"
 	"github.com/avran02/fileshare/files/internal/dto"
-	"github.com/avran02/fileshare/files/pb"
+	pb "github.com/avran02/fileshare/proto/filespb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/minio/minio-go/v7"

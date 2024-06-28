@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/avran02/auth/internal/controller"
-	"github.com/avran02/auth/pb"
+	"github.com/avran02/fileshare/auth/internal/controller"
+	pb "github.com/avran02/fileshare/proto/authpb"
 )
 
 type Server struct {

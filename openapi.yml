@@ -37,7 +37,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthToken'
-  /user/update-token:
+  /user/refresh-token:
     post:
       tags: ["User"]
       summary: Update user token

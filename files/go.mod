@@ -3,6 +3,7 @@ module github.com/avran02/fileshare/files
 go 1.22.3
 
 require (
+	github.com/avran02/fileshare v0.0.4
 	github.com/minio/minio-go/v7 v7.0.71
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.2

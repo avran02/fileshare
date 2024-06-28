@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/avran02/auth/internal/pkg/jwt"
-	"github.com/avran02/auth/internal/repo"
+	"github.com/avran02/fileshare/auth/internal/pkg/jwt"
+	"github.com/avran02/fileshare/auth/internal/repo"
 	"golang.org/x/crypto/bcrypt"
 )
 

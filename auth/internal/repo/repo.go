@@ -7,8 +7,8 @@ import (
 	"log"
 	"log/slog"
 
-	"github.com/avran02/auth/internal/config"
-	"github.com/avran02/auth/internal/models"
+	"github.com/avran02/fileshare/auth/internal/config"
+	"github.com/avran02/fileshare/auth/internal/models"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )

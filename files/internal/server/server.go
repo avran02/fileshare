@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/avran02/fileshare/files/internal/controller"
-	"github.com/avran02/fileshare/files/pb"
+	pb "github.com/avran02/fileshare/proto/filespb"
 )
 
 type FileServer struct {

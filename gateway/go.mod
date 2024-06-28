@@ -3,7 +3,7 @@ module github.com/avran02/fileshare/gateway
 go 1.22.3
 
 require (
-	github.com/avran02/fileshare/files v0.0.0-20240624200232-75ec61f639d8
+	github.com/avran02/fileshare v0.0.4
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/chi/v5 v5.0.14
 	github.com/json-iterator/go v1.1.12

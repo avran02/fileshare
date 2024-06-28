@@ -9,7 +9,7 @@ import (
 	"github.com/avran02/fileshare/files/internal/controller"
 	"github.com/avran02/fileshare/files/internal/server"
 	"github.com/avran02/fileshare/files/internal/service"
-	"github.com/avran02/fileshare/files/pb"
+	pb "github.com/avran02/fileshare/proto/filespb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
