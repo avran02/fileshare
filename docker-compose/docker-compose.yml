@@ -7,11 +7,6 @@ x-minio-common: &minio-common
   expose:
     - "9000"
     - "9001"
-  # healthcheck:
-  #   test: ["CMD", "mc", "ready", "local"]
-  #   interval: 5s
-  #   timeout: 5s
-  #   retries: 5
   deploy:
     resources:
       limits:
@@ -22,9 +17,63 @@ x-minio-common: &minio-common
       max_attempts: 3
       delay: 10s
   networks:
-    - backend
+    - minio-network
 
 services:
+  postgres:
+    # container_name: auth-storage
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth-storage
+      PGDATA: /data/postgres
+    restart: unless-stopped
+    expose:
+      - "5432"
+    networks: 
+      - auth-network
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+    networks: 
+      - auth-network
+
+  auth-migrate:
+    image: migrate/migrate
+    volumes:
+      - ../auth/migrations:/migrations
+    entrypoint: [
+      "migrate", "-path", "/migrations", "-database",
+      "postgres://postgres:postgres@postgres:5432/auth-storage?sslmode=disable", "up"
+    ]
+    restart: on-failure
+    depends_on:
+      - postgres
+    networks: 
+      - auth-network
+
+  auth:
+    container_name: auth-service
+    image: auth
+    build:
+      context: ../auth
+      dockerfile: dockerfile
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - auth-migrate
+    networks: 
+      - gateway-network
+      - auth-network
+    volumes:
+      - ../auth/config.yml:/app/config.yml
+
   caddy:
     image: caddy:2.8.4-alpine
     restart: unless-stopped
@@ -38,8 +87,7 @@ services:
       - ./html:/srv
 
     networks:
-      - backend
-      - frontend
+      - gateway-network
 
   files:
     image: fileshare/files:latest
@@ -65,7 +113,8 @@ services:
           cpus: '0.5'  
           memory: 512M
     networks:
-      - backend
+      - minio-network
+      - gateway-network
 
   gateway:
     image: fileshare/gateway:latest
@@ -90,7 +139,7 @@ services:
           cpus: '0.5'  
           memory: 512M
     networks:
-      - backend
+      - gateway-network
 
   minio1:
     <<: *minio-common
@@ -118,7 +167,7 @@ services:
       - minio1
       - minio2
     networks:
-      - backend
+      - minio-network
 
 volumes:
   data1-1:
@@ -127,8 +176,11 @@ volumes:
   data2-2:
 
 networks:
-  backend:
+  auth-network:
     driver: bridge
-  frontend:
+  minio-network:
     driver: bridge
+  gateway-network:
+    driver: bridge
+  
 
